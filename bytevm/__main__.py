@@ -3,4 +3,4 @@
 import sys
 
 from . import execfile
-execfile.cmdline(sys.argv)
+execfile.ExecFile().cmdline(sys.argv)
