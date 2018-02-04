@@ -1,4 +1,4 @@
-"""A main program for Byterun."""
+"""A main program for Bytevm."""
 
 import argparse
 import logging
@@ -6,7 +6,7 @@ import logging
 from . import execfile
 
 parser = argparse.ArgumentParser(
-    prog="byterun",
+    prog="bytevm",
     description="Run Python programs with a Python bytecode interpreter.",
 )
 parser.add_argument(

@@ -1183,7 +1183,7 @@ class VirtualMachine(object):
 
 if PY3:
     def build_class(func, name, *bases, **kwds):
-        "Like __build_class__ in bltinmodule.c, but running in the byterun VM."
+        "Like __build_class__ in bltinmodule.c, but running in the bytevm VM."
         if not isinstance(func, Function):
             raise TypeError("func must be a function")
         if not isinstance(name, str):

@@ -1,4 +1,4 @@
-Byterun
+Bytevm
 -------
 
 This is a pure-Python implementation of a Python bytecode execution virtual

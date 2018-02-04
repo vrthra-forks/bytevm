@@ -1,4 +1,4 @@
-"""Test exceptions for Byterun."""
+"""Test exceptions for Bytevm."""
 
 from __future__ import print_function
 from . import vmtest

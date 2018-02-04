@@ -1,4 +1,4 @@
-"""Implementations of Python fundamental objects for Byterun."""
+"""Implementations of Python fundamental objects for Bytevm."""
 
 import collections
 import inspect

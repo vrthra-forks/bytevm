@@ -1,4 +1,4 @@
-"""Test functions etc, for Byterun."""
+"""Test functions etc, for Bytevm."""
 
 from __future__ import print_function
 from . import vmtest

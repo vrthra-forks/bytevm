@@ -1,4 +1,4 @@
-"""Testing tools for byterun."""
+"""Testing tools for bytevm."""
 
 from __future__ import print_function
 
@@ -10,7 +10,7 @@ import unittest
 
 import six
 
-from byterun.pyvm2 import VirtualMachine, VirtualMachineError
+from bytevm.pyvm2 import VirtualMachine, VirtualMachineError
 
 # Make this false if you need to run the debugger inside a test.
 CAPTURE_STDOUT = ('-s' not in sys.argv)
@@ -41,7 +41,7 @@ class VmTestCase(unittest.TestCase):
         dis_code(code)
 
         # Run the code through our VM and the real Python interpreter, for comparison.
-        vm_value, vm_exc, vm_stdout = self.run_in_byterun(code)
+        vm_value, vm_exc, vm_stdout = self.run_in_bytevm(code)
         py_value, py_exc, py_stdout = self.run_in_real_python(code)
 
         self.assert_same_exception(vm_exc, py_exc)
@@ -52,7 +52,7 @@ class VmTestCase(unittest.TestCase):
         else:
             self.assertIsNone(vm_exc)
 
-    def run_in_byterun(self, code):
+    def run_in_bytevm(self, code):
         real_stdout = sys.stdout
 
         # Run the code through our VM.
