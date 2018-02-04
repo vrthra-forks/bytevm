@@ -4,6 +4,8 @@ import imp
 import os
 import sys
 import tokenize
+import argparse
+import logging
 
 from .pyvm2 import VirtualMachine
 
@@ -143,3 +145,38 @@ def run_python_file(filename, args, package=None):
         # Restore the old argv and path
         sys.argv = old_argv
         sys.path[0] = old_path0
+
+
+def cmdline(argv):
+    parser = argparse.ArgumentParser(
+        prog="bytevm",
+        description="Run Python programs with a Python bytecode interpreter.",
+    )
+    parser.add_argument(
+        '-m', dest='module', action='store_true',
+        help="prog is a module name, not a file name.",
+    )
+    parser.add_argument(
+        '-v', '--verbose', dest='verbose', action='store_true',
+        help="trace the execution of the bytecode.",
+    )
+    parser.add_argument(
+        'prog',
+        help="The program to run.",
+    )
+    parser.add_argument(
+        'args', nargs=argparse.REMAINDER,
+        help="Arguments to pass to the program.",
+    )
+    args = parser.parse_args()
+
+    if args.module:
+        run_fn = execfile.run_python_module
+    else:
+        run_fn = execfile.run_python_file
+
+    level = logging.DEBUG if args.verbose else logging.WARNING
+    logging.basicConfig(level=level)
+
+    new_argv = [args.prog] + args.args
+    run_fn(args.prog, new_argv)
