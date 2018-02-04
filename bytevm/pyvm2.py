@@ -263,7 +263,7 @@ class VirtualMachine(object):
         except:
             # deal with exceptions encountered while executing the op.
             self.last_exception = sys.exc_info()[:2] + (None,)
-            log.exception("Caught exception during execution")
+            #log.exception("Caught exception during execution")
             why = 'exception'
 
         return why
