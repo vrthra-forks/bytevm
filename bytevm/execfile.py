@@ -6,6 +6,7 @@ import sys
 import tokenize
 import argparse
 import logging
+import dis
 
 from .pyvm2 import VirtualMachine
 
@@ -108,6 +109,8 @@ class ExecFile:
             if not source or source[-1] != '\n':
                 source += '\n'
             code = compile(source, filename, "exec")
+            with open("%s.pyd" % filename, 'w+') as f:
+                dis.dis(code, file=f)
 
             # Execute the source file.
             self.exec_code_object(code, main_mod.__dict__)

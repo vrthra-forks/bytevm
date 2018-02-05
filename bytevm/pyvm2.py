@@ -170,6 +170,9 @@ class VirtualMachine(object):
         an instruction and optionally arguments.
         In Python3.6 the format is 2 bytes per instruction."""
         f = self.frame
+        self.line = f.line_number()
+        self.fn = f.f_code.co_filename
+        self.cn = f.f_code.co_name
         opoffset = f.f_lasti
         if f.py36_opcodes:
             currentOp = f.py36_opcodes[opoffset]
