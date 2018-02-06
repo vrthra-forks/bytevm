@@ -38,6 +38,8 @@ class VirtualMachineError(Exception):
 
 class VirtualMachine(object):
     def __init__(self):
+        # the number of steps this VM executed
+        self.steps = 0
         # The call stack of frames.
         self.frames = []
         # The current frame.
@@ -343,6 +345,7 @@ class VirtualMachine(object):
         """
         self.push_frame(frame)
         while True:
+            self.steps += 1
             byteName, arguments, opoffset = self.parse_byte_and_args()
             if log.isEnabledFor(logging.INFO):
                 self.log(byteName, arguments, opoffset)
