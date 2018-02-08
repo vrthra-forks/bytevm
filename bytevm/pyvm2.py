@@ -373,7 +373,10 @@ class VirtualMachine(object):
         self.pop_frame()
 
         if why == 'exception':
-            six.reraise(*self.last_exception)
+            if self.last_exception:
+                six.reraise(*self.last_exception)
+            else:
+                six.reraise(Exception, Exception('%s %s %s' % (byteName, arguments, opoffset)))
 
         return self.return_value
 
