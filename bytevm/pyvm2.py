@@ -1111,7 +1111,16 @@ class VirtualMachine(object):
                     )
                 )
             func = func.im_func
-        retval = func(*posargs, **namedargs)
+
+        if isinstance(func, types.FunctionType):
+            defaults = func.__defaults__ or ()
+            kwdefaults = func.__kwdefaults__ or ()
+            byterun_func = Function(
+                    func.__name__, func.__code__, func.__globals__,
+                    defaults, kwdefaults, func.__closure__, self)
+        else:
+            byterun_func = func
+        retval = byterun_func(*posargs, **namedargs)
         self.push(retval)
 
     def byte_RETURN_VALUE(self):
