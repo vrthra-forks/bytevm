@@ -15,6 +15,7 @@ import os.path
 import imp
 NoSource = Exception
 Loaded = {}
+IMPORT_INTERCEPT = False
 
 
 import six
@@ -182,8 +183,8 @@ class VirtualMachine(object):
         self.fn = f.f_code.co_filename
         self.cn = f.f_code.co_name
         opoffset = f.f_lasti
-        if f.py36_opcodes:
-            currentOp = f.py36_opcodes[opoffset]
+        if sys.version_info >= (3, 6):
+            currentOp = f.opcodes[opoffset]
             byteCode = currentOp.opcode
             byteName = currentOp.opname
         else:
@@ -192,7 +193,7 @@ class VirtualMachine(object):
         f.f_lasti += 1
         arg = None
         arguments = []
-        if f.py36_opcodes and byteCode == dis.EXTENDED_ARG:
+        if sys.version_info >= (3, 6) and byteCode == dis.EXTENDED_ARG:
             # Prefixes any opcode which has an argument too big to fit into the
             # default two bytes. ext holds two additional bytes which, taken
             # together with the subsequent opcode’s argument, comprise a
@@ -202,7 +203,7 @@ class VirtualMachine(object):
             # Lib/dis.py:_unpack_opargs
             return self.parse_byte_and_args()
         if byteCode >= dis.HAVE_ARGUMENT:
-            if f.py36_opcodes:
+            if sys.version_info >= (3, 6):
                 intArg = currentOp.arg
             else:
                 arg = f.f_code.co_code[f.f_lasti:f.f_lasti+2]
@@ -219,12 +220,12 @@ class VirtualMachine(object):
             elif byteCode in dis.hasname:
                 arg = f.f_code.co_names[intArg]
             elif byteCode in dis.hasjrel:
-                if f.py36_opcodes:
+                if sys.version_info >= (3, 6):
                     arg = f.f_lasti + intArg//2
                 else:
                     arg = f.f_lasti + intArg
             elif byteCode in dis.hasjabs:
-                if f.py36_opcodes:
+                if sys.version_info >= (3, 6):
                     arg = intArg//2
                 else:
                     arg = intArg
@@ -613,19 +614,48 @@ class VirtualMachine(object):
         # This is similar to BUILD_TUPLE_UNPACK, but is used for f(*x, *y, *z)
         # call syntax. The stack item at position count + 1 should be the
         # corresponding callable f.
-        elts = self.popn(count)
-        self.push(tuple(e for l in elts for e in l))
+        self.build_container_flat(count, tuple)
 
     def byte_BUILD_TUPLE_UNPACK(self, count):
         # Pops count iterables from the stack, joins them in a single tuple,
         # and pushes the result. Implements iterable unpacking in
         # tuple displays (*x, *y, *z).
-        elts = self.popn(count)
-        self.push(tuple(e for l in elts for e in l))
+        self.build_container_flat(count, tuple)
 
     def byte_BUILD_TUPLE(self, count):
+        self.build_container(count, tuple)
+
+
+    def byte_BUILD_LIST_UNPACK(self, count):
+        # This is similar to BUILD_TUPLE_UNPACK, but a list instead of tuple.
+        # Implements iterable unpacking in list displays [*x, *y, *z].
+        self.build_container_flat(count, list)
+
+    def byte_BUILD_SET_UNPACK(self, count):
+        # This is similar to BUILD_TUPLE_UNPACK, but a set instead of tuple.
+        # Implements iterable unpacking in set displays {*x, *y, *z}.
+        self.build_container_flat(count, set)
+
+    def byte_BUILD_MAP_UNPACK_WITH_CALL(self, count):
+        # Pops count mappings from the stack, merges them to a single dict,
+        # and pushes the result. Implements dictionary unpacking in dictionary
+        # displays {**x, **y, **z}.
+        self.byte_BUILD_MAP_UNPACK(count)
+
+    def byte_BUILD_MAP_UNPACK(self, count):
         elts = self.popn(count)
-        self.push(tuple(elts))
+        d = {}
+        for i in elts:
+            d.update(i)
+        self.push(d)
+
+    def build_container_flat(self, count, container_fn) :
+        elts = self.popn(count)
+        self.push(container_fn(e for l in elts for e in l))
+
+    def build_container(self, count, container_fn) :
+        elts = self.popn(count)
+        self.push(container_fn(elts))
 
     def byte_BUILD_LIST(self, count):
         elts = self.popn(count)
@@ -647,7 +677,7 @@ class VirtualMachine(object):
 
     def byte_BUILD_MAP(self, count):
         # Pushes a new dictionary on to stack.
-        if not(six.PY3 and sys.version_info.minor >= 5):
+        if sys.version_info < (3, 5):
             self.push({})
             return
         # Pop 2*count items so that
@@ -1203,7 +1233,11 @@ class VirtualMachine(object):
 
     def byte_IMPORT_NAME(self, name):
         level, fromlist = self.popn(2)
-        self.import_module(name, fromlist, level)
+        if IMPORT_INTERCEPT:
+            self.import_module(name, fromlist, level)
+        else:
+            frame = self.frame
+            self.push(__import__(name, frame.f_globals, frame.f_locals, fromlist, level))
 
     def byte_IMPORT_STAR(self):
         # TODO: this doesn't use __all__ properly.
