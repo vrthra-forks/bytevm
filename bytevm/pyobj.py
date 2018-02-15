@@ -46,8 +46,9 @@ class Function(object):
         self._vm = vm
         self.func_code = self.__code__ = code
         self.func_name = self.__name__ = name or code.co_name
-        self.func_defaults = self.__defaults__ = defaults \
-                if PY3 and sys.version_info.minor >= 6 else tuple(defaults)
+        d = defaults[0] if defaults and len(defaults) == 1 else defaults
+        self.func_defaults = self.__defaults__ = d \
+                if sys.version_info >= (3, 6) else tuple(defaults)
         self.func_globals = self.__globals__ = globs
         self.func_locals = self.__locals__ = self._vm.frame.f_locals
         self.__dict__ = {}

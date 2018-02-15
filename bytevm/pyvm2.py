@@ -50,15 +50,18 @@ class VirtualMachineError(Exception):
 
 
 class VirtualMachine(object):
+    steps = 0
     def __init__(self):
         # the number of steps this VM executed
-        self.steps = 0
         # The call stack of frames.
         self.frames = []
         # The current frame.
         self.frame = None
         self.return_value = None
         self.last_exception = None
+
+    def _i(self):
+        return (VirtualMachine.steps, self.frame.stack if self.frame else None)
 
     def top(self):
         """Return the value at the top of the stack, with no changes."""
@@ -180,17 +183,22 @@ class VirtualMachine(object):
             tb, value, exctype = self.popn(3)
             self.last_exception = exctype, value, tb
 
+    def w(self):
+        return "%s:%s (%s)" % (self.fn, self.line, self.cn)
+
     def parse_byte_and_args(self):
         """ Parse 1 - 3 bytes of bytecode into
         an instruction and optionally arguments.
         In Python3.6 the format is 2 bytes per instruction."""
         f = self.frame
-        self.line = f.line_number()
         self.fn = f.f_code.co_filename
         self.cn = f.f_code.co_name
         opoffset = f.f_lasti
         if sys.version_info >= (3, 6):
             currentOp = f.opcodes[opoffset]
+            if currentOp.starts_line:
+                self.line = currentOp.starts_line
+
             byteCode = currentOp.opcode
             byteName = currentOp.opname
         else:
@@ -358,7 +366,7 @@ class VirtualMachine(object):
         """
         self.push_frame(frame)
         while True:
-            self.steps += 1
+            VirtualMachine.steps += 1
             byteName, arguments, opoffset = self.parse_byte_and_args()
             if log.isEnabledFor(logging.INFO):
                 self.log(byteName, arguments, opoffset)
