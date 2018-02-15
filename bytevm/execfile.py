@@ -9,6 +9,7 @@ import logging
 import dis
 
 from .pyvm2 import VirtualMachine
+from .sys import pseudosys
 
 NoSource = Exception
 
@@ -75,22 +76,18 @@ class ExecFile:
 
         """
         # Create a module to serve as __main__
-        old_main_mod = sys.modules['__main__']
         main_mod = imp.new_module('__main__')
-        sys.modules['__main__'] = main_mod
+        pseudosys.modules['__main__'] = main_mod
         main_mod.__file__ = filename
         if package:
             main_mod.__package__ = package
         main_mod.__builtins__ = sys.modules['builtins']
 
-        # Set sys.argv and the first path element properly.
-        old_argv = sys.argv
-        old_path0 = sys.path[0]
-        sys.argv = args
+        pseudosys.argv = args
         if package:
-            sys.path[0] = ''
+            pseudosys.path[0] = ''
         else:
-            sys.path[0] = os.path.abspath(os.path.dirname(filename))
+            pseudosys.path[0] = os.path.abspath(os.path.dirname(filename))
 
         try:
             # Open the source file.
@@ -115,12 +112,8 @@ class ExecFile:
             # Execute the source file.
             self.exec_code_object(code, main_mod.__dict__)
         finally:
-            # Restore the old __main__
-            sys.modules['__main__'] = old_main_mod
+            pass
 
-            # Restore the old argv and path
-            sys.argv = old_argv
-            sys.path[0] = old_path0
 
 
     def cmdline(self, argv):

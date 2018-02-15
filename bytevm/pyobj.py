@@ -11,6 +11,10 @@ import sys
 
 PY3, PY2 = six.PY3, not six.PY3
 
+def brk(t=True):
+    if not t: return None
+    import pudb; pudb.set_trace()
+
 
 def make_cell(value):
     # Thanks to Alex Gaynor for help with this bit of twistiness.
@@ -86,6 +90,21 @@ class Function(object):
         # Perhaps deal with inspect.CO_COROUTINE here instead of async def
         if self.func_code.co_flags & inspect.CO_GENERATOR:
             gen = Generator(frame, self._vm)
+            frame.generator = gen
+            retval = gen
+        elif self.func_code.co_flags & inspect.CO_COROUTINE:
+            # https://www.python.org/dev/peps/pep-0492/
+            # CO_COROUTINE is used to mark native coroutines (defined with new syntax).
+            gen = CoRoutine(frame, self._vm)
+            frame.generator = gen
+            retval = gen
+        elif self.func_code.co_flags & inspect.CO_ITERABLE_COROUTINE:
+            # CO_ITERABLE_COROUTINE is used to make generator-based coroutines compatible with native coroutines (set by types.coroutine() function).
+            gen = CoRoutine(frame, self._vm)
+            frame.generator = gen
+            retval = gen
+        elif self.func_code.co_flags & inspect.CO_ASYNC_GENERATOR:
+            gen = CoRoutine(frame, self._vm)
             frame.generator = gen
             retval = gen
         else:
@@ -226,3 +245,16 @@ class Generator(object):
         return val
 
     __next__ = next
+
+    def __del__(self):
+        self.close()
+
+    def close(self):
+        self.finished = True
+
+    def throw(self, typ, val=None, tb=None):
+        self.vm.do_raise(typ, val, tb)
+
+class CoRoutine(Generator):
+    def __await__(self):
+        return self
