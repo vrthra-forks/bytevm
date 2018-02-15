@@ -78,8 +78,8 @@ class Function(object):
         frame = self._vm.make_frame(
             self.func_code, callargs, self.func_globals, {}, self.func_closure
         )
-        CO_GENERATOR = 32           # flag for "this code uses yield"
-        if self.func_code.co_flags & CO_GENERATOR:
+        # Perhaps deal with inspect.CO_COROUTINE here instead of async def
+        if self.func_code.co_flags & inspect.CO_GENERATOR:
             gen = Generator(frame, self._vm)
             frame.generator = gen
             retval = gen
