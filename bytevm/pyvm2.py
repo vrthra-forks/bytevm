@@ -23,9 +23,14 @@ from six.moves import reprlib
 
 PY3, PY2 = six.PY3, not six.PY3
 
-from .pyobj import Frame, Block, Method, Function, Generator, Cell
+from .pyobj import Frame, Block, Method, Function, Generator, Cell, traceback
 
 log = logging.getLogger(__name__)
+
+def brk(t=True):
+    if not t: return None
+    import pudb
+    pudb.set_trace()
 
 if six.PY3:
     byteint = lambda b: b
@@ -381,7 +386,8 @@ class VirtualMachine(object):
 
         if why == 'exception':
             if self.last_exception:
-                six.reraise(*self.last_exception)
+                et, val, tb = self.last_exception
+                raise val.with_traceback(tb)
             else:
                 six.reraise(Exception, Exception('%s %s %s' % (byteName, arguments, opoffset)))
 
@@ -946,7 +952,9 @@ class VirtualMachine(object):
 
                 val.__cause__ = cause
 
-            self.last_exception = exc_type, val, val.__traceback__
+            tb = traceback(self.frame, self.frame.f_lasti)
+            self.last_exception = exc_type, val, tb
+            setattr(self.frame.f_globals['sys'], 'exc_info', lambda : self.last_exception)
             return 'exception'
 
     def byte_POP_EXCEPT(self):

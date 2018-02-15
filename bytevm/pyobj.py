@@ -22,33 +22,38 @@ def make_cell(value):
     else:
         return fn.func_closure[0]
 
+class traceback(object):
+    def __init__(self, frame, lasti = 0, line=0, nxt=None):
+        self.tb_frame = frame
+        self.tb_lasti = lasti
+        self.tb_lineno = line
+        self.tb_next = nxt
 
 class Function(object):
     __slots__ = [
         'func_code', 'func_name', 'func_defaults', 'func_globals',
         'func_locals', 'func_dict', 'func_closure',
         '__name__', '__dict__', '__doc__',
+        '__code__', '__defaults__','__globals__', '__locals__', '__closure__',
         '_vm', '_func',
     ]
 
     def __init__(self, name, code, globs, defaults, kwdefaults, closure, vm):
         self._vm = vm
-        self.func_code = code
+        self.func_code = self.__code__ = code
         self.func_name = self.__name__ = name or code.co_name
-        self.func_defaults = defaults \
+        self.func_defaults = self.__defaults__ = defaults \
                 if PY3 and sys.version_info.minor >= 6 else tuple(defaults)
-        self.func_globals = globs
-        self.func_locals = self._vm.frame.f_locals
+        self.func_globals = self.__globals__ = globs
+        self.func_locals = self.__locals__ = self._vm.frame.f_locals
         self.__dict__ = {}
-        self.func_closure = closure
+        self.func_closure = self.__closure__ = closure
         self.__doc__ = code.co_consts[0] if code.co_consts else None
 
         # Sometimes, we need a real Python function.  This is for that.
-        kw = {
-            'argdefs': self.func_defaults,
-        }
-        if closure:
-            kw['closure'] = tuple(make_cell(0) for _ in closure)
+        kw = {}
+        if self.__defaults__: kw['argdefs'] = self.func_defaults,
+        if self.__closure__: kw['closure'] = tuple(make_cell(0) for _ in closure)
         self._func = types.FunctionType(code, globs, **kw)
 
     def __repr__(self):         # pragma: no cover
