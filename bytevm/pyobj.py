@@ -11,6 +11,10 @@ import sys
 
 PY3, PY2 = six.PY3, not six.PY3
 
+def brk(t=True):
+    if not t: return None
+    import pudb; pudb.set_trace()
+
 
 def make_cell(value):
     # Thanks to Alex Gaynor for help with this bit of twistiness.
@@ -22,33 +26,39 @@ def make_cell(value):
     else:
         return fn.func_closure[0]
 
+class traceback(object):
+    def __init__(self, frame, lasti = 0, line=0, nxt=None):
+        self.tb_frame = frame
+        self.tb_lasti = lasti
+        self.tb_lineno = line
+        self.tb_next = nxt
 
 class Function(object):
     __slots__ = [
         'func_code', 'func_name', 'func_defaults', 'func_globals',
         'func_locals', 'func_dict', 'func_closure',
         '__name__', '__dict__', '__doc__',
+        '__code__', '__defaults__','__globals__', '__locals__', '__closure__',
         '_vm', '_func',
     ]
 
     def __init__(self, name, code, globs, defaults, kwdefaults, closure, vm):
         self._vm = vm
-        self.func_code = code
+        self.func_code = self.__code__ = code
         self.func_name = self.__name__ = name or code.co_name
-        self.func_defaults = defaults \
-                if PY3 and sys.version_info.minor >= 6 else tuple(defaults)
-        self.func_globals = globs
-        self.func_locals = self._vm.frame.f_locals
+        self.func_defaults = self.__defaults__ = defaults \
+                if sys.version_info >= (3, 6) else tuple(defaults)
+        self.func_globals = self.__globals__ = globs
+        self.func_locals = self.__locals__ = self._vm.frame.f_locals
         self.__dict__ = {}
-        self.func_closure = closure
+        self.func_closure = self.__closure__ = closure
         self.__doc__ = code.co_consts[0] if code.co_consts else None
 
         # Sometimes, we need a real Python function.  This is for that.
-        kw = {
-            'argdefs': self.func_defaults,
-        }
-        if closure:
-            kw['closure'] = tuple(make_cell(0) for _ in closure)
+
+        kw = {}
+        if defaults: kw['argdefs'] = self.func_defaults
+        if closure: kw['closure'] = tuple(make_cell(0) for _ in closure)
         self._func = types.FunctionType(code, globs, **kw)
 
     def __repr__(self):         # pragma: no cover
@@ -78,9 +88,24 @@ class Function(object):
         frame = self._vm.make_frame(
             self.func_code, callargs, self.func_globals, {}, self.func_closure
         )
-        CO_GENERATOR = 32           # flag for "this code uses yield"
-        if self.func_code.co_flags & CO_GENERATOR:
+        # Perhaps deal with inspect.CO_COROUTINE here instead of async def
+        if self.func_code.co_flags & inspect.CO_GENERATOR:
             gen = Generator(frame, self._vm)
+            frame.generator = gen
+            retval = gen
+        elif self.func_code.co_flags & inspect.CO_COROUTINE:
+            # https://www.python.org/dev/peps/pep-0492/
+            # CO_COROUTINE is used to mark native coroutines (defined with new syntax).
+            gen = CoRoutine(frame, self._vm)
+            frame.generator = gen
+            retval = gen
+        elif self.func_code.co_flags & inspect.CO_ITERABLE_COROUTINE:
+            # CO_ITERABLE_COROUTINE is used to make generator-based coroutines compatible with native coroutines (set by types.coroutine() function).
+            gen = CoRoutine(frame, self._vm)
+            frame.generator = gen
+            retval = gen
+        elif self.func_code.co_flags & inspect.CO_ASYNC_GENERATOR:
+            gen = CoRoutine(frame, self._vm)
             frame.generator = gen
             retval = gen
         else:
@@ -221,3 +246,16 @@ class Generator(object):
         return val
 
     __next__ = next
+
+    def __del__(self):
+        self.close()
+
+    def close(self):
+        self.finished = True
+
+    def throw(self, typ, val=None, tb=None):
+        self.vm.do_raise(typ, val, tb)
+
+class CoRoutine(Generator):
+    def __await__(self):
+        return self

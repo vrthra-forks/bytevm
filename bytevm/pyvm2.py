@@ -10,6 +10,7 @@ import logging
 import operator
 import sys
 import types
+from .sys import pseudosys
 
 import os.path
 import imp
@@ -23,9 +24,14 @@ from six.moves import reprlib
 
 PY3, PY2 = six.PY3, not six.PY3
 
-from .pyobj import Frame, Block, Method, Function, Generator, Cell
+from .pyobj import Frame, Block, Method, Function, Generator, Cell, traceback
 
 log = logging.getLogger(__name__)
+
+def brk(t=True):
+    if not t: return None
+    import pudb
+    pudb.set_trace()
 
 if six.PY3:
     byteint = lambda b: b
@@ -44,15 +50,18 @@ class VirtualMachineError(Exception):
 
 
 class VirtualMachine(object):
+    steps = 0
     def __init__(self):
         # the number of steps this VM executed
-        self.steps = 0
         # The call stack of frames.
         self.frames = []
         # The current frame.
         self.frame = None
         self.return_value = None
         self.last_exception = None
+
+    def _i(self):
+        return (VirtualMachine.steps, self.frame.stack if self.frame else None)
 
     def top(self):
         """Return the value at the top of the stack, with no changes."""
@@ -174,17 +183,22 @@ class VirtualMachine(object):
             tb, value, exctype = self.popn(3)
             self.last_exception = exctype, value, tb
 
+    def w(self):
+        return "%s:%s (%s)" % (self.fn, self.line, self.cn)
+
     def parse_byte_and_args(self):
         """ Parse 1 - 3 bytes of bytecode into
         an instruction and optionally arguments.
         In Python3.6 the format is 2 bytes per instruction."""
         f = self.frame
-        self.line = f.line_number()
         self.fn = f.f_code.co_filename
         self.cn = f.f_code.co_name
         opoffset = f.f_lasti
         if sys.version_info >= (3, 6):
             currentOp = f.opcodes[opoffset]
+            if currentOp.starts_line:
+                self.line = currentOp.starts_line
+
             byteCode = currentOp.opcode
             byteName = currentOp.opname
         else:
@@ -352,7 +366,7 @@ class VirtualMachine(object):
         """
         self.push_frame(frame)
         while True:
-            self.steps += 1
+            VirtualMachine.steps += 1
             byteName, arguments, opoffset = self.parse_byte_and_args()
             if log.isEnabledFor(logging.INFO):
                 self.log(byteName, arguments, opoffset)
@@ -381,9 +395,10 @@ class VirtualMachine(object):
 
         if why == 'exception':
             if self.last_exception:
-                six.reraise(*self.last_exception)
+                et, val, tb = self.last_exception
+                raise val
             else:
-                six.reraise(Exception, Exception('%s %s %s' % (byteName, arguments, opoffset)))
+                raise Exception('%s %s %s' % (byteName, arguments, opoffset))
 
         return self.return_value
 
@@ -607,6 +622,17 @@ class VirtualMachine(object):
     def byte_DELETE_SUBSCR(self):
         obj, subscr = self.popn(2)
         del obj[subscr]
+
+    def byte_GET_AWAITABLE(self):
+        # Implements TOS = get_awaitable(TOS), where get_awaitable(o) returns
+        # o if o is a coroutine object or a generator object with the
+        # CO_ITERABLE_COROUTINE flag, or resolves o.__await__.
+        # new from 3.5
+        tos = self.top()
+        if isinstance(tos, types.GeneratorType) or isinstance(tos, types.CoroutineType):
+            return
+        tos = self.pop()
+        self.push(tos.__await__())
 
     ## Building
 
@@ -908,15 +934,20 @@ class VirtualMachine(object):
 
     elif PY3:
         def byte_RAISE_VARARGS(self, argc):
-            cause = exc = None
-            if argc == 2:
+            cause = exc = tb = None
+            if argc == 3:
+                tb = self.pop()
+                cause = self.pop()
+                exc = self.pop()
+            elif argc == 2:
                 cause = self.pop()
                 exc = self.pop()
             elif argc == 1:
                 exc = self.pop()
-            return self.do_raise(exc, cause)
+            tb = tb if tb else traceback(self.frame, self.frame.f_lasti)
+            return self.do_raise(exc, cause, tb)
 
-        def do_raise(self, exc, cause):
+        def do_raise(self, exc, cause, tb):
             if exc is None:         # reraise
                 exc_type, val, tb = self.last_exception
                 if exc_type is None:
@@ -946,7 +977,9 @@ class VirtualMachine(object):
 
                 val.__cause__ = cause
 
-            self.last_exception = exc_type, val, val.__traceback__
+            tb = traceback(self.frame, self.frame.f_lasti)
+            self.last_exception = exc_type, val, tb
+            pseudosys._exc_info = self.last_exception
             return 'exception'
 
     def byte_POP_EXCEPT(self):
@@ -1157,12 +1190,7 @@ class VirtualMachine(object):
         else:
             byterun_func = func
 
-        if hasattr(func, '__code__') and func.__code__.co_flags & inspect.CO_COROUTINE:
-            async def tmp():
-                return byterun_func(*posargs, **namedargs)
-            retval = tmp()
-        else:
-            retval = byterun_func(*posargs, **namedargs)
+        retval = byterun_func(*posargs, **namedargs)
         self.push(retval)
 
     def import_module(self, m, fromList, level):
@@ -1239,6 +1267,9 @@ class VirtualMachine(object):
 
     def byte_IMPORT_NAME(self, name):
         level, fromlist = self.popn(2)
+        if name == 'sys':
+            self.push(pseudosys)
+            return
         if INTERCEPT_IMPORTS:
             self.import_module(name, fromlist, level)
         else:
