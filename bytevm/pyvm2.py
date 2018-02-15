@@ -15,7 +15,7 @@ import os.path
 import imp
 NoSource = Exception
 Loaded = {}
-IMPORT_INTERCEPT = False
+INTERCEPT_IMPORTS = False
 
 
 import six
@@ -1156,7 +1156,13 @@ class VirtualMachine(object):
                     defaults, kwdefaults, func.__closure__, self)
         else:
             byterun_func = func
-        retval = byterun_func(*posargs, **namedargs)
+
+        if hasattr(func, '__code__') and func.__code__.co_flags & inspect.CO_COROUTINE:
+            async def tmp():
+                return byterun_func(*posargs, **namedargs)
+            retval = tmp()
+        else:
+            retval = byterun_func(*posargs, **namedargs)
         self.push(retval)
 
     def import_module(self, m, fromList, level):
@@ -1233,7 +1239,7 @@ class VirtualMachine(object):
 
     def byte_IMPORT_NAME(self, name):
         level, fromlist = self.popn(2)
-        if IMPORT_INTERCEPT:
+        if INTERCEPT_IMPORTS:
             self.import_module(name, fromlist, level)
         else:
             frame = self.frame
