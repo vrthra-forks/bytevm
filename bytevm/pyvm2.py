@@ -16,7 +16,7 @@ import os.path
 import imp
 NoSource = Exception
 Loaded = {}
-INTERCEPT_IMPORTS = False
+INTERCEPT_IMPORTS = True
 
 
 import six
@@ -1205,6 +1205,7 @@ class VirtualMachine(object):
         """
         try:
             if '.' not in modulename:
+                if modulename in Loaded: return Loaded[modulename]
                 mymod = find_module(modulename, search, level, True, glo, loc)
                 # Open the source file.
                 try:
@@ -1221,6 +1222,7 @@ class VirtualMachine(object):
                     raise NoSource("module does not live in a file: %r" % modulename)
             else:
                 pkgn, name = modulename.rsplit('.', 1)
+                if pkgn in Loaded: return Loaded[pkgn]
                 pkg = find_module(pkgn, search, level, False, glo, loc)
                 mod = self.import_python_module(name, glo, loc, fromlist, level, pkg.__file__)
                 # mod is an attribute of pkg
