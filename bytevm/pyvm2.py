@@ -262,7 +262,7 @@ class VirtualMachine(object):
 
         log.info("  %sdata: %s" % (indent, stack_rep))
         log.info("  %sblks: %s" % (indent, block_stack_rep))
-        log.info("%s%s" % (indent, op))
+        log.info("%s<%s>%s" % (indent, self.steps, op))
 
     def dispatch(self, byteName, arguments):
         """ Dispatch by bytename to the corresponding methods.
