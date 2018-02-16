@@ -722,7 +722,7 @@ class VirtualMachine(object):
 
     def byte_UNPACK_SEQUENCE(self, count):
         seq = self.pop()
-        for x in reversed(seq):
+        for x in reversed(list(seq)):
             self.push(x)
 
     def byte_BUILD_SLICE(self, count):
