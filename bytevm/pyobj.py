@@ -187,6 +187,7 @@ class Frame(object):
 
         self.f_lineno = f_code.co_firstlineno
         self.f_lasti = 0
+        self._line = 0
 
         self.cells = {} if f_code.co_cellvars or f_code.co_freevars else None
         for var in f_code.co_cellvars:
@@ -206,6 +207,8 @@ class Frame(object):
 
     def line_number(self):
         """Get the current line number the frame is executing."""
+        if sys.version_info > (3, 6):
+            return self._line
         # We don't keep f_lineno up to date, so calculate it based on the
         # instruction address and the line number table.
         lnotab = self.f_code.co_lnotab

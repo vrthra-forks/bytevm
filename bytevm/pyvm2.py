@@ -183,8 +183,18 @@ class VirtualMachine(object):
             tb, value, exctype = self.popn(3)
             self.last_exception = exctype, value, tb
 
+    def f(self, frame):
+        return "%s:%s (%s)" % (frame.f_code.co_filename, frame.line_number(), frame.f_code.co_name)
+
     def w(self):
-        return "%s:%s (%s)" % (self.fn, self.line, self.cn)
+        return self.f(self.frame)
+
+    def ww(self):
+        fstr = []
+        for f in reversed(self.frames):
+            fstr.append(self.f(f))
+        return ', '.join(fstr)
+
 
     def parse_byte_and_args(self):
         """ Parse 1 - 3 bytes of bytecode into
@@ -197,7 +207,7 @@ class VirtualMachine(object):
         if sys.version_info >= (3, 6):
             currentOp = f.opcodes[opoffset]
             if currentOp.starts_line:
-                self.line = currentOp.starts_line
+                f._line = currentOp.starts_line
 
             byteCode = currentOp.opcode
             byteName = currentOp.opname
