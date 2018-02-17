@@ -45,7 +45,7 @@ class Function(object):
     def __init__(self, name, code, globs, defaults, kwdefaults, closure, vm):
         self._vm = vm
         self.func_code = self.__code__ = code
-        self.func_name = self.__name__ = name or code.co_name
+        self.func_name = name or code.co_name
         self.func_defaults = self.__defaults__ = defaults \
                 if sys.version_info >= (3, 6) else tuple(defaults)
         self.func_globals = self.__globals__ = globs
@@ -60,6 +60,8 @@ class Function(object):
         if defaults: kw['argdefs'] = self.func_defaults
         if closure: kw['closure'] = tuple(make_cell(0) for _ in closure)
         self._func = types.FunctionType(code, globs, **kw)
+        self.__name__ = self._func.__name__
+        self.__qname__ = self.func_name
 
     def __repr__(self):         # pragma: no cover
         return '<Function %s at 0x%08x>' % (
