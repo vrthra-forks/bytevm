@@ -16,8 +16,8 @@ import os.path
 import imp
 NoSource = Exception
 Loaded = {}
-INTERCEPT_IMPORTS = True
-
+Intercept_Imports = True
+Interpret_Original = True
 
 import six
 from six.moves import reprlib
@@ -1181,7 +1181,7 @@ class VirtualMachine(object):
                 )
             func = func.im_func
 
-        if isinstance(func, types.FunctionType):
+        if isinstance(func, types.FunctionType) and Interpret_Original:
             defaults = func.__defaults__ or ()
             kwdefaults = func.__kwdefaults__ or ()
             byterun_func = Function(
@@ -1316,7 +1316,7 @@ class VirtualMachine(object):
         if name == 'sys':
             self.push(pseudosys)
             return
-        if INTERCEPT_IMPORTS:
+        if Intercept_Imports:
             self.import_module(name, fromlist, level)
         else:
             frame = self.frame
