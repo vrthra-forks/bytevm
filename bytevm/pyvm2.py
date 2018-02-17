@@ -1180,7 +1180,7 @@ class VirtualMachine(object):
         if hasattr(func, '__name__'):
             if func.__name__ == 'getattr' and type(posargs[0]) is Function and posargs[1] == '__qualname__':
                 # https://bugs.python.org/issue19073
-                retval = posargs[0].__q__
+                retval = posargs[0].__qname__
                 self.push(retval)
                 return
 
