@@ -152,13 +152,13 @@ class Cell(object):
 
     """
     def __init__(self, value):
-        self.contents = value
+        self.cell_contents = value
 
     def get(self):
-        return self.contents
+        return self.cell_contents
 
     def set(self, value):
-        self.contents = value
+        self.cell_contents = value
 
 
 Block = collections.namedtuple("Block", "type, handler, level")
