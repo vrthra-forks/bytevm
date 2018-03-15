@@ -28,10 +28,8 @@ from .pyobj import Frame, Block, Method, Function, Generator, Cell, traceback
 
 log = logging.getLogger(__name__)
 
-def brk(t=True):
-    if not t: return None
-    import pudb
-    pudb.set_trace()
+import pudb
+brk = pudb.set_trace
 
 if six.PY3:
     byteint = lambda b: b
